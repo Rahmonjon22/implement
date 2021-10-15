@@ -42,9 +42,50 @@ app.post('/login', (req, res)=>{
         // const domain = payload['hd'];
         console.log(payload);
       }
-      verify().catch(console.error);
+      verify()
+      .then(()=>{
+          res.cookie('session-token', token);
+          res.send('success');
+      })
+      .catch(console.error);
 })
 
+app.get('/dashboard', checkAuthenticated, (req, res)=>{
+    let user = req.user;
+    res.render('dashboard', {user});
+})
+
+app.get('/protectedroute', checkAuthenticated, (req, res)=>{
+    res.render('protectedroute');
+})
+
+app.get('/logout', (req, res)=>{
+    res.clearCookie('session-token');
+    res.redirect('/login')
+})
+
+function checkAuthenticated(req, res, next){
+    let token = req.cookies['session-token'];
+    let user = {};
+    async function verify() {
+        const ticket = await client.verifyIdToken({
+            idToken: token,
+            audience: CLIENT_ID, //Specify the CLIENT_ID of the app that access the backend
+        });
+        const payload =ticket.getPayload();
+        user.name = payload.name;
+        user.email = payload.email;
+        user.picture = payload.picture;
+    }
+    verify()
+    .then(()=>{
+        req.user = user;
+        next();
+    })
+    .catch(err=>{
+        res.redirect('/login')
+    })
+}
 
 app.listen(PORT, ()=>{
     console.log(`Server running on port ${PORT}`);
